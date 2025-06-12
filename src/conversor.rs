@@ -12,8 +12,8 @@ pub fn converter_distancia(valor: f64, de: &str, para: &str) -> Result<f64, Erro
         ("Milimetro", "Metro") => Ok(valor / 1000.0),
         ("Milimetro", "Quilometro") => Ok(valor / 1_000_000.0),
         ("Centimetro", "Milimetro") => Ok(valor * 10.0),
-        ("Centimetro", "Metro") => Ok(valor * 100.0),
-        ("Centimetro", "Quilometro") => Ok(valor * 100_000.0),
+        ("Centimetro", "Metro") => Ok(valor / 100.0),
+        ("Centimetro", "Quilometro") => Ok(valor / 100_000.0),
         ("Metro", "Milimetro") => Ok(valor * 1000.0),
         ("Metro", "Centimetro") => Ok(valor * 100.0),
         ("Metro", "Quilometro") => Ok(valor / 1000.0),
@@ -64,3 +64,15 @@ pub fn converter_temperatura(valor: f64, de: &str, para: &str) -> Result<f64, Er
         )),
     }
 }
+
+pub fn converter_unidades(valor: f64, de: &str, para: &str) -> Result<f64, Error> {
+    match de {
+        "Celsius" | "Fahrenheit" | "Kelvin" => converter_temperatura(valor, de, para),
+        "Milimetro" | "Centimetro" | "Metro" | "Quilometro" | "Polegada" | "Pe" | "Jarda" | "Milha" => {
+            converter_distancia(valor, de, para)
+        }
+        "Miligrama" | "Grama" | "Kilograma" | "Libra" | "Onça" => converter_peso(valor, de, para),
+        _ => Err(Error::ConversaoNaoSuportada(de.to_string(), para.to_string())),
+    }
+}
+	

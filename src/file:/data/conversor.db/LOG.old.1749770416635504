@@ -1,0 +1,1 @@
+2025/06/12-20:14:28.499267 32176 [WARN] [db/db_impl/db_impl_open.cc:2312] DB::Open() failed: IO error: While lock file: file:/data/conversor.db/LOCK: Resource temporarily unavailable

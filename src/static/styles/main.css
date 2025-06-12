@@ -154,21 +154,40 @@ button:not(#theme-toggle):hover {
   border-radius: 8px;
   text-align: center;
   font-size: 1.2rem;
-  display: none;
+  display: block;
+  min-height: 80px;
+  border: 1px solid var(--border-color);
+}
+
+#resultado .conversion-result {
+  font-size: 1.5rem;
+  margin: 0.5rem 0;
+  color: var(--text-color);
+}
+
+#resultado .success-message {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  color: var(--text-color);
 }
 
 #resultado.success {
   background: rgba(76, 201, 240, 0.1);
   color: var(--success);
-  border: 1px solid var(--success);
-  display: block;
+  border-color: var(--success);
 }
 
 #resultado.error {
   background: rgba(247, 37, 133, 0.1);
   color: var(--error);
-  border: 1px solid var(--error);
-  display: block;
+  border-color: var(--error);
+}
+
+#debug {
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  color: #666;
+  word-break: break-word;
 }
 
 .conversion-result {
@@ -196,5 +215,18 @@ button:not(#theme-toggle):hover {
 
   header h1 {
     font-size: 1.4rem;
+  }
+  
+  .converter-form {
+    padding: 1.5rem;
+  }
+  
+  #resultado {
+    padding: 1rem;
+    min-height: 70px;
+  }
+  
+  #resultado .conversion-result {
+    font-size: 1.2rem;
   }
 }

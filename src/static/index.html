@@ -3,19 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conversor de Unidades</title>
+    <title>Conversor Universal</title>
     <link rel="stylesheet" href="/styles/main.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --text-color: #333;
+            --bg-color: #f8f9fa;
+        }
+        [data-theme="dark"] {
+            --primary: #5a75f5;
+            --text-color: #f8f9fa;
+            --bg-color: #121212;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+        #resultado {
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.1);
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1><i class="fas fa-exchange-alt"></i> Conversor Universal</h1>
+            <button id="theme-toggle"><i class="fas fa-moon"></i></button>
         </header>
-
-        <button id="theme-toggle" aria-label="Alterar tema">
-            <i class="fas fa-moon"></i>
-        </button>
 
         <main class="converter-form">
             <div class="input-group">
@@ -28,7 +48,7 @@
                 <select id="categoria" onchange="atualizarUnidades()">
                     <option value="distancia">Distância</option>
                     <option value="peso">Peso</option>
-                    <option value="temperatura" selected>Temperatura</option>
+                    <option value="temperatura">Temperatura</option>
                 </select>
             </div>
 
@@ -47,18 +67,19 @@
             </button>
 
             <div id="resultado"></div>
-            <!-- Área de debug -->
-            <div id="debug" style="color: #666; font-size: 0.8em; margin-top: 1rem;"></div>
+            <div id="debug" style="color: #666; font-size: 0.8em;"></div>
         </main>
     </div>
 
     <script>
+        // Unidades disponíveis
         const unidades = {
             distancia: ["Milimetro", "Centimetro", "Metro", "Quilometro", "Polegada", "Pe", "Jarda", "Milha"],
             peso: ["Miligrama", "Grama", "Kilograma", "Libra", "Onca"],
             temperatura: ["Celsius", "Fahrenheit", "Kelvin"]
         };
 
+        // Atualiza selects de unidade
         function atualizarUnidades() {
             const categoria = document.getElementById('categoria').value;
             const deSelect = document.getElementById('de');
@@ -72,15 +93,12 @@
                 paraSelect.innerHTML += `<option value="${unidade}">${unidade}</option>`;
             });
 
-            // Configurações padrão para temperatura
-            if (categoria === 'temperatura') {
-                deSelect.value = 'Celsius';
-                paraSelect.value = 'Fahrenheit';
-            } else if (unidades[categoria].length > 1) {
+            if (unidades[categoria].length > 1) {
                 paraSelect.selectedIndex = 1;
             }
         }
 
+        // Função principal de conversão
         async function converter() {
             const valor = document.getElementById('valor').value;
             const de = document.getElementById('de').value;
@@ -88,89 +106,53 @@
             const resultadoDiv = document.getElementById('resultado');
             const debugDiv = document.getElementById('debug');
 
-            resultadoDiv.innerHTML = '';
-            resultadoDiv.className = '';
-            debugDiv.textContent = '';
-
-            if (!valor) {
-                resultadoDiv.innerHTML = '❌ Digite um valor para converter';
-                resultadoDiv.className = 'error';
-                return;
-            }
+            debugDiv.textContent = "Enviando requisição...";
 
             try {
                 const response = await fetch('http://localhost:8000/api/converter', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        valor: parseFloat(valor), 
-                        de, 
-                        para 
-                    })
+                    body: JSON.stringify({ valor: parseFloat(valor), de, para })
                 });
 
                 const data = await response.json();
-                
-                debugDiv.textContent = `Resposta da API: ${JSON.stringify(data, null, 2)}`;
-                console.log("Resposta da API:", data);
+                debugDiv.textContent = `Resposta: ${JSON.stringify(data)}`;
 
-                if (!response.ok) {
-                    throw new Error(data.error || 'Erro desconhecido');
+                if (data.success) {
+                    resultadoDiv.innerHTML = `
+                        <div class="conversion-result">
+                            ${data.original_value} ${data.from_unit} = 
+                            <strong>${data.converted_value} ${data.to_unit}</strong>
+                        </div>
+                    `;
+                } else {
+                    resultadoDiv.innerHTML = `❌ Erro: ${data.error}`;
                 }
-
-                resultadoDiv.innerHTML = `
-                    <div class="conversion-result">
-                        ${data.valor_original} ${data.de} = 
-                        <strong>${data.valor_convertido} ${data.para}</strong>
-                    </div>
-                    <div class="success-message">
-                        <i class="fas fa-check-circle"></i> Conversão realizada com sucesso!
-                    </div>
-                `;
-                resultadoDiv.className = 'success';
-
             } catch (error) {
-                console.error("Erro na conversão:", error);
-                resultadoDiv.innerHTML = `❌ Erro: ${error.message || 'Falha na conversão'}`;
-                resultadoDiv.className = 'error';
+                resultadoDiv.innerHTML = '❌ Falha na conexão com o servidor';
+                console.error("Erro:", error);
             }
         }
 
-        // Gerenciamento do tema
+        // Tema escuro/claro
         const themeToggle = document.getElementById('theme-toggle');
-        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-
-        function loadTheme() {
-            const savedTheme = localStorage.getItem('theme') || 
-                            (prefersDarkScheme.matches ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            updateIcon(savedTheme);
-        }
-
         function toggleTheme() {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
+            const current = document.documentElement.getAttribute('data-theme');
+            const newTheme = current === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', newTheme);
+            themeToggle.innerHTML = `<i class="fas fa-${newTheme === 'dark' ? 'sun' : 'moon'}"></i>`;
             localStorage.setItem('theme', newTheme);
-            updateIcon(newTheme);
-        }
-
-        function updateIcon(theme) {
-            themeToggle.innerHTML = theme === 'dark' 
-                ? '<i class="fas fa-sun"></i>' 
-                : '<i class="fas fa-moon"></i>';
         }
 
         // Inicialização
-        atualizarUnidades();
-        themeToggle.addEventListener('click', toggleTheme);
-        window.addEventListener('DOMContentLoaded', loadTheme);
-        prefersDarkScheme.addListener(e => {
-            if (!localStorage.getItem('theme')) {
-                loadTheme();
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            atualizarUnidades();
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            themeToggle.innerHTML = `<i class="fas fa-${savedTheme === 'dark' ? 'sun' : 'moon'}"></i>`;
+            themeToggle.addEventListener('click', toggleTheme);
         });
     </script>
 </body>
 </html>
+	

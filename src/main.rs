@@ -7,10 +7,9 @@ mod models;
 use rocket::fs::FileServer;
 use rocket::serde::{json::Json, json::json};
 use rocket::State;
-use std::path::Path;
 use surrealdb::{Surreal, engine::local::Db};
 use chrono::Local;
-use models::{ConversaoRequest, RegistroConversao};
+use std::path::Path;
 
 struct CORS;
 
@@ -32,71 +31,52 @@ impl rocket::fairing::Fairing for CORS {
 
 #[post("/converter", data = "<req>")]
 async fn converter(
-    req: Json<ConversaoRequest>,
+    req: Json<models::ConversaoRequest>,
     db: &State<Surreal<Db>>
-) -> Result<Json<serde_json::Value>, Json<String>> {
-    let resultado = match conversor::converter_temperatura(req.valor, &req.de, &req.para) {
+) -> Json<serde_json::Value> {
+    let resultado = match conversor::converter_unidades(req.valor, &req.de, &req.para) {
         Ok(val) => val,
-        Err(e) => return Err(Json(e.to_string()))
+        Err(e) => return Json(json!({"success": false, "error": e.to_string()}))
     };
 
-    let registro: Option<RegistroConversao> = db
-        .create("conversao")
-        .content(RegistroConversao {
-            id: None,
-            data: models::Conversao {
-                valor: req.valor,
-                de: req.de.clone(),
-                para: req.para.clone(),
-                resultado,
-                usuario: None,
-            },
-            created_at: Local::now().to_rfc3339(),
-        })
-        .await
-        .map_err(|e| Json(e.to_string()))?;
+    
+    let _: Result<Option<serde_json::Value>, surrealdb::Error> = db.create("conversao")
+        .content(json!({
+            "valor_original": req.valor,
+            "valor_convertido": resultado,
+            "de": req.de,
+            "para": req.para,
+            "timestamp": Local::now().to_rfc3339()
+        }))
+        .await;
 
-    Ok(Json(json!({
-    "valor_original": req.valor,
-    "valor_convertido": resultado,
-    "de": req.de,
-    "para": req.para,
-    "registro_id": registro.unwrap().id.unwrap().id.to_string()
-})))
+    Json(json!({
+        "original_value": req.valor,
+        "converted_value": resultado,
+        "from_unit": req.de,
+        "to_unit": req.para
+    }))
 }
 
-#[options("/converter")]
-fn options_handler() -> &'static str {
-    ""
-}
-
-#[get("/historico?<limite>")]
-async fn historico(
-    limite: Option<u32>,
-    db: &State<Surreal<Db>>
-) -> Result<Json<Vec<RegistroConversao>>, Json<String>> {
-    let mut query = db
-        .query("SELECT * FROM conversao ORDER BY created_at DESC LIMIT $limite")
-        .bind(("limite", limite.unwrap_or(10)))
-        .await
-        .map_err(|e| Json(e.to_string()))?;
-
-    let historico: Vec<RegistroConversao> = query.take(0).map_err(|e| Json(e.to_string()))?;
-    Ok(Json(historico))
+#[get("/health")]
+fn health_check() -> &'static str {
+    "OK"
 }
 
 #[launch]
 async fn rocket() -> _ {
+    
     let static_path = Path::new("static");
-    if !static_path.exists() || !static_path.is_dir() {
-        panic!("Pasta 'static' não encontrada ou não é um diretório!");
+    if !static_path.exists() {
+        panic!("Pasta 'static' não encontrada!");
     }
 
-    let db = db::init_db().await.expect("Falha ao conectar ao banco de dados");
+    
+    let db = db::init_db().await.expect("Falha ao conectar ao banco");
 
     rocket::build()
         .attach(CORS)
         .manage(db)
-        .mount("/api", routes![converter, options_handler, historico])
+        .mount("/api", routes![converter, health_check])
         .mount("/", FileServer::from(static_path))
 }
