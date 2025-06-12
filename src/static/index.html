@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversor de Unidades</title>
+    <link rel="stylesheet" href="/styles/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-exchange-alt"></i> Conversor Universal</h1>
+        </header>
+
+        <button id="theme-toggle" aria-label="Alterar tema">
+            <i class="fas fa-moon"></i>
+        </button>
+
+        <main class="converter-form">
+            <div class="input-group">
+                <label for="valor">Valor</label>
+                <input type="number" id="valor" step="any" placeholder="Ex: 100">
+            </div>
+
+            <div class="input-group">
+                <label for="categoria">Categoria</label>
+                <select id="categoria" onchange="atualizarUnidades()">
+                    <option value="distancia">Distância</option>
+                    <option value="peso">Peso</option>
+                    <option value="temperatura" selected>Temperatura</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="de">De</label>
+                <select id="de"></select>
+            </div>
+
+            <div class="input-group">
+                <label for="para">Para</label>
+                <select id="para"></select>
+            </div>
+
+            <button onclick="converter()">
+                <i class="fas fa-sync-alt"></i> Converter
+            </button>
+
+            <div id="resultado"></div>
+            <!-- Área de debug -->
+            <div id="debug" style="color: #666; font-size: 0.8em; margin-top: 1rem;"></div>
+        </main>
+    </div>
+
+    <script>
+        const unidades = {
+            distancia: ["Milimetro", "Centimetro", "Metro", "Quilometro", "Polegada", "Pe", "Jarda", "Milha"],
+            peso: ["Miligrama", "Grama", "Kilograma", "Libra", "Onca"],
+            temperatura: ["Celsius", "Fahrenheit", "Kelvin"]
+        };
+
+        function atualizarUnidades() {
+            const categoria = document.getElementById('categoria').value;
+            const deSelect = document.getElementById('de');
+            const paraSelect = document.getElementById('para');
+
+            deSelect.innerHTML = '';
+            paraSelect.innerHTML = '';
+
+            unidades[categoria].forEach(unidade => {
+                deSelect.innerHTML += `<option value="${unidade}">${unidade}</option>`;
+                paraSelect.innerHTML += `<option value="${unidade}">${unidade}</option>`;
+            });
+
+            // Configurações padrão para temperatura
+            if (categoria === 'temperatura') {
+                deSelect.value = 'Celsius';
+                paraSelect.value = 'Fahrenheit';
+            } else if (unidades[categoria].length > 1) {
+                paraSelect.selectedIndex = 1;
+            }
+        }
+
+        async function converter() {
+            const valor = document.getElementById('valor').value;
+            const de = document.getElementById('de').value;
+            const para = document.getElementById('para').value;
+            const resultadoDiv = document.getElementById('resultado');
+            const debugDiv = document.getElementById('debug');
+
+            resultadoDiv.innerHTML = '';
+            resultadoDiv.className = '';
+            debugDiv.textContent = '';
+
+            if (!valor) {
+                resultadoDiv.innerHTML = '❌ Digite um valor para converter';
+                resultadoDiv.className = 'error';
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:8000/api/converter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        valor: parseFloat(valor), 
+                        de, 
+                        para 
+                    })
+                });
+
+                const data = await response.json();
+                
+                debugDiv.textContent = `Resposta da API: ${JSON.stringify(data, null, 2)}`;
+                console.log("Resposta da API:", data);
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Erro desconhecido');
+                }
+
+                resultadoDiv.innerHTML = `
+                    <div class="conversion-result">
+                        ${data.valor_original} ${data.de} = 
+                        <strong>${data.valor_convertido} ${data.para}</strong>
+                    </div>
+                    <div class="success-message">
+                        <i class="fas fa-check-circle"></i> Conversão realizada com sucesso!
+                    </div>
+                `;
+                resultadoDiv.className = 'success';
+
+            } catch (error) {
+                console.error("Erro na conversão:", error);
+                resultadoDiv.innerHTML = `❌ Erro: ${error.message || 'Falha na conversão'}`;
+                resultadoDiv.className = 'error';
+            }
+        }
+
+        // Gerenciamento do tema
+        const themeToggle = document.getElementById('theme-toggle');
+        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme') || 
+                            (prefersDarkScheme.matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateIcon(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateIcon(newTheme);
+        }
+
+        function updateIcon(theme) {
+            themeToggle.innerHTML = theme === 'dark' 
+                ? '<i class="fas fa-sun"></i>' 
+                : '<i class="fas fa-moon"></i>';
+        }
+
+        // Inicialização
+        atualizarUnidades();
+        themeToggle.addEventListener('click', toggleTheme);
+        window.addEventListener('DOMContentLoaded', loadTheme);
+        prefersDarkScheme.addListener(e => {
+            if (!localStorage.getItem('theme')) {
+                loadTheme();
+            }
+        });
+    </script>
+</body>
+</html>
